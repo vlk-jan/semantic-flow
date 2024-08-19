@@ -1,8 +1,11 @@
+from pathlib import Path
+from typing import Union, List, Dict
+
 import torch
 import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
-from typing import Union, List, Dict
+
 from mobile_sam import sam_model_registry, SamAutomaticMaskGenerator
 
 
@@ -36,7 +39,7 @@ class Segmentation:
 
         self.mask_generator = SamAutomaticMaskGenerator(sam)
 
-    def load_image(self, file: str) -> np.ndarray:
+    def load_image(self, file: Union[str, Path]) -> np.ndarray:
         """
         Loads image from file.
 
@@ -136,7 +139,6 @@ class Segmentation:
         if type(image) == str:
             image = self.load_image(image)
 
-        print("Segmenting image...")
         self.masks = self.mask_generator.generate(image)
 
         return self.masks

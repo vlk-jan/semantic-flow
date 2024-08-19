@@ -1,6 +1,6 @@
 import pickle
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import cv2
 import numpy as np
@@ -10,8 +10,8 @@ import pyarrow.feather as feather
 from utils import print_dict, q_2_rot
 
 class AVScene:
-    def __init__(self, root_dir: Path, debug: bool = False):
-        self.root_dir = root_dir
+    def __init__(self, root_dir: Union[Path, str], debug: bool = False):
+        self.root_dir = root_dir if isinstance(root_dir, Path) else Path(root_dir)
         self.view_T_camera = np.array(
             [
                 [0, -1, 0],
@@ -26,12 +26,12 @@ class AVScene:
                 [0, -1, 0],
             ]
         )
-        self._load_calib(root_dir / "calibration", debug)
-        self._load_imgs(root_dir / "sensors", debug)
-        self._load_lidar(root_dir / "sensors", debug)
+        self._load_calib(self.root_dir / "calibration", debug)
+        self._load_imgs(self.root_dir / "sensors", debug)
+        self._load_lidar(self.root_dir / "sensors", debug)
         self._get_timestamps()
 
-    def _load_calib(self, calib_path: str, debug: bool = False) -> None:
+    def _load_calib(self, calib_path: Path, str, debug: bool = False) -> None:
         """
         Load calibration files of intrinsics and extrinsics.
         
@@ -105,7 +105,7 @@ class AVScene:
 
         return ret
 
-    def _load_imgs(self, sensor_path: Path, debug: bool = False) -> None:
+    def _load_imgs(self, sensor_path: Path, str, debug: bool = False) -> None:
         """
         Load image paths from the sensor path.
 
@@ -170,7 +170,7 @@ class AVScene:
                     for sensor in self.raw_imgs.keys()
                 }
 
-    def get_imgs_for_timestamp(self, timestamp: int, sensors: List[str]) -> Dict[str, Path]:
+    def get_imgs_for_timestamp(self, timestamp: int, sensors: List[str]) -> Dict[str, np.ndarray]:
         """
         Get images for a specific timestamp.
 
@@ -187,11 +187,11 @@ class AVScene:
             A dictionary containing the images for each sensor.
         """
         return {
-            sensor: cv2.imread(str(self.timestamp_to_path[sensor][self.lidar_to_img_map[timestamp][sensor]]))
+            sensor: cv2.cvtColor(cv2.imread(str(self.timestamp_to_path[sensor][self.lidar_to_img_map[timestamp][sensor]])), cv2.COLOR_BGR2RGB)
             for sensor in sensors
         }
 
-    def save(self, save_path: Path) -> None:
+    def save(self, save_path: Union[Path, str]) -> None:
         """
         Save the dataset to a pickle file.
 
@@ -200,6 +200,7 @@ class AVScene:
         save_path : Path
             Path to save the dataset.
         """
+        save_path = save_path if isinstance(save_path, Path) else Path(save_path)
         save_path.parent.mkdir(parents=True, exist_ok=True)
         with open(save_path, "wb") as f:
             pickle.dump(self, f)
@@ -217,5 +218,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    dataset = AVScene(Path(args.root_dir), debug=args.debug)
+    dataset = AVScene(args.root_dir, debug=args.debug)
     dataset.save(Path(args.save_dir) / f"{Path(args.root_dir).stem}.pkl")

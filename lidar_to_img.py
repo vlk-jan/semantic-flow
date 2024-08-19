@@ -188,7 +188,6 @@ class LidarToImg:
             int(np.ceil(img.shape[0] / reduction_factor)),
         )
         new_img = cv2.resize(img, new_shape).astype(np.float32)
-        new_img = cv2.cvtColor(new_img, cv2.COLOR_BGR2RGB)        
         return new_img
 
     def generate(self, save_dir: Path) -> None:
