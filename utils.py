@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 from typing import Dict, List, Tuple
-from time import sleep
 
 import cv2
 import numpy as np
