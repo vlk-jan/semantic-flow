@@ -7,7 +7,6 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 from mobile_sam import sam_model_registry, SamAutomaticMaskGenerator
-from utils import print_dict
 
 
 class Segmentation:
