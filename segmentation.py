@@ -137,8 +137,7 @@ class Segmentation:
         masks = masks if masks is not None else self.masks
 
         sorted_anns = sorted(masks, key=(lambda x: x['area']), reverse=True)
-        img = np.ones((sorted_anns[0]['segmentation'].shape[0], sorted_anns[0]['segmentation'].shape[1], 1))
-        img[:,:,3] = 0
+        img = np.zeros((sorted_anns[0]['segmentation'].shape[0], sorted_anns[0]['segmentation'].shape[1], 1))
         idx = 1
         for ann in sorted_anns:
             m = ann['segmentation']

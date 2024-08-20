@@ -1,6 +1,8 @@
-from typing import Dict
+from pathlib import Path
+from typing import Dict, Union
 
 import numpy as np
+import imageio
 
 
 def q_2_rot(qx, qy, qz, qw) -> np.ndarray:
@@ -55,3 +57,18 @@ def print_dict(d: Dict[any, any]) -> None:
         print(key)
         print(value)
     print()
+
+def animate_renders(render_dir: Union[Path, str]) -> None:
+    """
+    Animate the rendered images.
+
+    Parameters
+    ----------
+    render_dir : Path | str
+        Path to the rendered images.
+    """
+    render_dir = render_dir if isinstance(render_dir, Path) else Path(render_dir)
+
+    with imageio.get_writer(render_dir.parent / (render_dir.stem + ".gif"), mode="I", loop=True, fps=10) as writer:
+        for file in sorted(Path(render_dir).iterdir()):
+            writer.append_data(imageio.imread(file))

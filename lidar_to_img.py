@@ -68,7 +68,7 @@ class LidarToImg:
 
         return projected_points
 
-    def visualize(self, timestamp: int, save_path: Optional[Path] = None, reduction_scale: int = 4) -> None:
+    def visualize(self, timestamp: int, save_path: Optional[Union[Path, str]] = None, reduction_scale: int = 4) -> None:
         """
         Visualize the projected point cloud on the image.
 
@@ -134,6 +134,7 @@ class LidarToImg:
         fig.set_facecolor("black")
 
         if save_path is not None:
+            save_path = save_path if isinstance(save_path, Path) else Path(save_path)
             plt.savefig(save_path, bbox_inches="tight", pad_inches=0)
             plt.close()
         else:
@@ -190,7 +191,7 @@ class LidarToImg:
         new_img = cv2.resize(img, new_shape).astype(np.float32)
         return new_img
 
-    def generate(self, save_dir: Path) -> None:
+    def generate(self, save_dir: Union[Path, str]) -> None:
         """
         Generate the visualizations for all timestamps.
 
@@ -199,6 +200,7 @@ class LidarToImg:
         save_dir : Path
             The directory to save the visualizations.
         """
+        save_dir = save_dir if isinstance(save_dir, Path) else Path(save_dir)
         save_dir = save_dir / self.scene.root_dir.stem
         save_dir.mkdir(parents=True, exist_ok=True)
 
