@@ -69,6 +69,6 @@ def animate_renders(render_dir: Union[Path, str]) -> None:
     """
     render_dir = render_dir if isinstance(render_dir, Path) else Path(render_dir)
 
-    with imageio.get_writer(render_dir.parent / (render_dir.stem + ".gif"), mode="I", loop=True, fps=10) as writer:
+    with imageio.get_writer(render_dir.parent / (render_dir.stem + ".gif"), mode="I", loop=0, fps=10) as writer:
         for file in sorted(Path(render_dir).iterdir()):
             writer.append_data(imageio.imread(file))
