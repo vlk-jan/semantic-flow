@@ -5,19 +5,82 @@ from typing import Optional, Union, List, Dict
 
 import cv2
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import pyarrow.feather as feather
 
 from dataset import AVScene
+from utils import draw_pc
 
 
 class LidarToImg:
-    def __init__(self, scene: Union[AVScene, Path, str], sensors: List[str]):
+    def __init__(self, scene: Union[AVScene, Path, str], sensors: Optional[List[str]] = None):
         if isinstance(scene, (Path, str)):
             with open(scene, "rb") as f:
                 scene = pickle.load(f)
         self.scene = scene
-        self.sensors = sensors
+        self.sensors = sensors if sensors is not None else [sensor for sensor in self.scene.camera_intrinsics.keys() if "stereo" not in sensor]
+
+    def run(self, save_dir: Union[Path, dir], visualize: bool = False) -> None:
+        """
+        Create and save the colored point clouds.
+
+        Parameters
+        ----------
+        save_dir : Path
+            The directory to save the colored point clouds.
+        visualize : bool
+            Flag to visualize the colored point clouds.
+        """
+        print("Calculating projections into images")
+        self.project()
+
+        print("Coloring point clouds")
+        for timestamp in tqdm.tqdm(self.scene.pcd_timestamps):
+            pcd = self.color_pcd(timestamp, save_dir)
+            if visualize:
+                draw_pc(pcd)
+
+            save_dir = save_dir if isinstance(save_dir, Path) else Path(save_dir)
+            save_dir.mkdir(parents=True, exist_ok=True)
+            feather.write_feather(pcd, save_dir / f"{timestamp}.feather")
+
+    def color_pcd(self, timestamp: int, save_dir: Union[Path, str]) -> pd.DataFrame:
+        """
+        Color the point cloud based on the projection to the image.
+
+        Parameters
+        ----------
+        timestamp : int
+            The timestamp of the point cloud.
+        save_dir : Path
+            The directory to save the colored point cloud.
+
+        Returns
+        -------
+        pd.DataFrame
+            The colored point cloud.
+        """
+        imgs = self.scene.get_imgs_for_timestamp(timestamp, self.sensors)
+        pcd = feather.read_feather(self.scene.pcd[self.scene.pcd_timestamps.index(timestamp)])
+        full_pcd = np.c_[pcd["x"], pcd["y"], pcd["z"], np.zeros(pcd.shape[0]), np.zeros(pcd.shape[0]), np.zeros(pcd.shape[0])]
+
+        projected_points = self.projected_points[timestamp]
+
+        for sensor in self.sensors:
+            img = imgs[sensor]
+            projected_points_2d = projected_points[sensor]
+
+            mask = (
+                (projected_points_2d[:, 0] > 0)
+                & (projected_points_2d[:, 1] > 0)
+                & (projected_points_2d[:, 0] < imgs[sensor].shape[1])
+                & (projected_points_2d[:, 1] < imgs[sensor].shape[0])
+            )
+            indexes = projected_points_2d[mask]
+            full_pcd[mask, 3:] = img[indexes[:, 1], indexes[:, 0]] / 255
+
+        return pd.DataFrame(full_pcd, columns=["x", "y", "z", "r", "g", "b"])
 
     def project(self) -> Dict[int, Dict[str, np.ndarray]]:
         """
@@ -28,10 +91,10 @@ class LidarToImg:
         dict
             A dictionary containing the projected points for each camera for each timestamp.
         """
-        self.projected_points = {
-            timestamp: self._project_lidar_to_img(timestamp)
-            for timestamp in self.scene.pcd_timestamps
-        }
+        self.projected_points = dict()
+        for timestamp in tqdm.tqdm(self.scene.pcd_timestamps):
+            self.projected_points[timestamp] = self._project_lidar_to_img(timestamp)
+
         return self.projected_points
 
     def _project_lidar_to_img(self, timestamp: int) -> Dict[str, np.ndarray]:
@@ -215,14 +278,17 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Lidar to image class debugging")
     parser.add_argument("--scene_dir", type=str, default="./datasets/ff8e7fdb-1073-3592-ba5e-8111bc3ce48b.pkl", help="Path to the scene pickle file")
-    parser.add_argument("--save_dir", type=str, default="./lidar_to_img", help="Path to save the projected points")
-    parser.add_argument("--visualize", "-v", action="store_true", help="Flag to visualize the projected point cloud")
+    parser.add_argument("--save_dir", type=str, default="./colored_pcds", help="Path to save the colored point clouds")
+    parser.add_argument("--vis_3d", action="store_true", help="Flag to visualize the colored point cloud")
+    parser.add_argument("--vis_img", action="store_true", help="Flag to visualize the projected point cloud")
     parser.add_argument("--vis_dir", type=str, help="Path to save the visualizations")
 
     args = parser.parse_args()
 
     sensors = ["ring_side_left", "ring_front_left", "ring_front_center", "ring_front_right", "ring_side_right"]
 
-    lidar_to_img = LidarToImg(Path(args.scene_dir), sensors)
-    if args.visualize:
+    lidar_to_img = LidarToImg(Path(args.scene_dir), None)
+    lidar_to_img.run(Path(args.save_dir), args.vis_3d)
+
+    if args.vis_img:
         lidar_to_img.visualize(0, Path(args.vis_dir))

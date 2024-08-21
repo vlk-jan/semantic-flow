@@ -1,8 +1,10 @@
 from pathlib import Path
 from typing import Dict, Union
 
-import numpy as np
 import imageio
+import numpy as np
+import pandas as pd
+import open3d as o3d
 
 
 def q_2_rot(qx, qy, qz, qw) -> np.ndarray:
@@ -72,3 +74,25 @@ def animate_renders(render_dir: Union[Path, str]) -> None:
     with imageio.get_writer(render_dir.parent / (render_dir.stem + ".gif"), mode="I", loop=0, fps=10) as writer:
         for file in sorted(Path(render_dir).iterdir()):
             writer.append_data(imageio.imread(file))
+
+def draw_pc(pc_xyzrgb: pd.DataFrame) -> None:
+    """
+    Plot colored point cloud.
+
+    Parameters
+    ----------
+    pc_xyzrgb : pd.DataFrame
+        Point cloud to plot.
+    """
+    pc_xyzrgb = np.array(pc_xyzrgb)
+    pc = o3d.geometry.PointCloud()
+    pc.points = o3d.utility.Vector3dVector(pc_xyzrgb[:, 0:3])
+    if pc_xyzrgb.shape[1] == 3:
+        o3d.visualization.draw_geometries([pc])
+        return 0
+    if np.max(pc_xyzrgb[:, 3:6]) > 20:  ## 0-255
+        pc.colors = o3d.utility.Vector3dVector(pc_xyzrgb[:, 3:6] / 255.)
+    else:
+        pc.colors = o3d.utility.Vector3dVector(pc_xyzrgb[:, 3:6])
+    o3d.visualization.draw_geometries([pc])
+    return 0
