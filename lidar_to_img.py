@@ -79,7 +79,7 @@ class LidarToImg:
                 & (projected_points_2d[:, 1] < imgs[sensor].shape[0])
             )
             indexes = projected_points_2d[mask]
-            full_pcd[mask, 3:] = img[indexes[:, 1], indexes[:, 0]] / 255
+            full_pcd[mask, 3:6] = img[indexes[:, 1], indexes[:, 0]] / 255
 
         return pd.DataFrame(full_pcd, columns=["x", "y", "z", "r", "g", "b", "seq_idx"])
 
@@ -280,6 +280,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Lidar to image class debugging")
     parser.add_argument("--scene_dir", type=str, default="./datasets/ff8e7fdb-1073-3592-ba5e-8111bc3ce48b.pkl", help="Path to the scene pickle file")
     parser.add_argument("--save_dir", type=str, default="./colored_pcds", help="Path to save the colored point clouds")
+    parser.add_argument("--seg_dir", type=str, default="./seg", help="Path to the segmented images")
     parser.add_argument("--vis_3d", action="store_true", help="Flag to visualize the colored point cloud")
     parser.add_argument("--vis_img", action="store_true", help="Flag to visualize the projected point cloud")
     parser.add_argument("--vis_dir", type=str, help="Path to save the visualizations")
@@ -289,7 +290,7 @@ if __name__ == "__main__":
     sensors = ["ring_side_left", "ring_front_left", "ring_front_center", "ring_front_right", "ring_side_right"]
 
     lidar_to_img = LidarToImg(Path(args.scene_dir), None)
-    lidar_to_img.run(Path(args.save_dir), args.vis_3d)
+    lidar_to_img.run(Path(args.save_dir), Path(args.seg_dir), args.vis_3d)
 
     if args.vis_img:
         lidar_to_img.visualize(0, Path(args.vis_dir))
