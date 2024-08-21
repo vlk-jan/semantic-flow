@@ -95,4 +95,3 @@ def draw_pc(pc_xyzrgb: pd.DataFrame) -> None:
     else:
         pc.colors = o3d.utility.Vector3dVector(pc_xyzrgb[:, 3:6])
     o3d.visualization.draw_geometries([pc])
-    return 0

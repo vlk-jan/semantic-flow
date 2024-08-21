@@ -43,7 +43,7 @@ class LidarToImg:
 
             save_dir = save_dir if isinstance(save_dir, Path) else Path(save_dir)
             save_dir.mkdir(parents=True, exist_ok=True)
-            feather.write_feather(pcd, save_dir / f"{timestamp}.feather")
+            feather.write_feather(pcd, save_dir / self.scene.root_dir.stem / f"{timestamp}.feather")
 
     def color_pcd(self, timestamp: int, seg_img_path: Union[Path, str]) -> pd.DataFrame:
         """

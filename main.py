@@ -32,7 +32,7 @@ def main(args: argparse.Namespace) -> None:
     assert Path(args.root_dir).exists(), f"Path {Path(args.root_dir).absolute()} does not exist"
 
     # Iterate over the all scenes
-    for scene_dir in tqdm.tqdm(list(Path(args.root_dir).iterdir())):
+    for scene_dir in tqdm.tqdm(sorted(Path(args.root_dir).iterdir())):
         if not scene_dir.is_dir():  # check for random files
             print(f"{scene_dir} is not a directory")
             continue
@@ -60,7 +60,7 @@ def main(args: argparse.Namespace) -> None:
                 for sensor, img in tqdm.tqdm(loaded_images.items()):  # iterate over all sensors TODO: parallelize?
                     segmentation.segment_image(img)
                     seg_img = segmentation.create_segmented_image()
-                    np.save(Path(args.seg_dir) / sensor / f"{timestamp}.npy", seg_img)
+                    np.save(Path(args.seg_dir) / scene_dir.stem /  sensor / f"{timestamp}.npy", seg_img)
 
             lidar_to_img.run(args.save_dir, args.seg_dir)
         else:
