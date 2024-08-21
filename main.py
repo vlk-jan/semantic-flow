@@ -3,6 +3,8 @@ import pickle
 import argparse
 from pathlib import Path
 
+import numpy as np
+
 from dataset import AVScene
 from lidar_to_img import LidarToImg
 from segmentation import Segmentation
@@ -16,6 +18,7 @@ def parse_args():
     parser.add_argument("--root_dir", type=str, default="../../dataset/train", help="Path to the dataset")
     parser.add_argument("--dataset_dir", type=str, help="Path to the pickled dataset")
     parser.add_argument("--checkpoint_path", type=str, default="./weights/", help="Path to MobileSAM checkpoint")
+    parser.add_argument("--seg_dir", type=str, default="./seg", help="Path to save the segmented images")
     parser.add_argument("--render", action="store_true", default=False, help="Flag to render the point cloud projections into images")
     parser.add_argument("--render_dir", type=str, default="./render", help="Path to save the rendered images")
     parser.add_argument("--debug", action="store_true", default=False, help="Flag for extra debugging info")
@@ -23,7 +26,7 @@ def parse_args():
     return parser.parse_args()
 
 def main(args: argparse.Namespace) -> None:
-    sensors = ["ring_side_left", "ring_front_left", "ring_front_center", "ring_front_right", "ring_side_right"]
+    sensors = ["ring_rear_left", "ring_side_left", "ring_front_left", "ring_front_center", "ring_front_right", "ring_side_right", "ring_rear_right"]
 
     assert Path(args.root_dir).exists(), f"Path {Path(args.root_dir).absolute()} does not exist"
 
@@ -49,9 +52,12 @@ def main(args: argparse.Namespace) -> None:
             segmentation = Segmentation(args.checkpoint_path)
             for timestamp in tqdm.tqdm(dataset.pcd_timestamps):  # iterate over all timestamps
                 loaded_images = dataset.get_imgs_for_timestamp(timestamp, sensors)
+                for sensor in sensors:
+                    Path(args.seg_dir + "/" + sensor).mkdir(parents=True, exist_ok=True)
                 for sensor, img in tqdm.tqdm(loaded_images.items()):  # iterate over all sensors TODO: parallelize?
                     segmentation.segment_image(img)
-                    segmentation.create_segmented_image()
+                    seg_img = segmentation.create_segmented_image()
+                    np.save(Path(args.seg_dir) / sensor / f"{timestamp}.npy", seg_img)
         else:
             # Project the point cloud to images
             lidar_to_img = LidarToImg(dataset, sensors)

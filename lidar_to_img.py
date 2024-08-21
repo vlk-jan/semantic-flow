@@ -21,7 +21,7 @@ class LidarToImg:
         self.scene = scene
         self.sensors = sensors if sensors is not None else [sensor for sensor in self.scene.camera_intrinsics.keys() if "stereo" not in sensor]
 
-    def run(self, save_dir: Union[Path, dir], visualize: bool = False) -> None:
+    def run(self, save_dir: Union[Path, dir], seg_img_path: Union[Path, str], visualize: bool = False) -> None:
         """
         Create and save the colored point clouds.
 
@@ -37,7 +37,7 @@ class LidarToImg:
 
         print("Coloring point clouds")
         for timestamp in tqdm.tqdm(self.scene.pcd_timestamps):
-            pcd = self.color_pcd(timestamp, save_dir)
+            pcd = self.color_pcd(timestamp, Path(seg_img_path))
             if visualize:
                 draw_pc(pcd)
 
@@ -45,7 +45,7 @@ class LidarToImg:
             save_dir.mkdir(parents=True, exist_ok=True)
             feather.write_feather(pcd, save_dir / f"{timestamp}.feather")
 
-    def color_pcd(self, timestamp: int, save_dir: Union[Path, str]) -> pd.DataFrame:
+    def color_pcd(self, timestamp: int, seg_img_path: Union[Path, str]) -> pd.DataFrame:
         """
         Color the point cloud based on the projection to the image.
 
@@ -53,8 +53,8 @@ class LidarToImg:
         ----------
         timestamp : int
             The timestamp of the point cloud.
-        save_dir : Path
-            The directory to save the colored point cloud.
+        seq_img_path : Path
+            The path to the segmented images. 
 
         Returns
         -------
@@ -63,12 +63,13 @@ class LidarToImg:
         """
         imgs = self.scene.get_imgs_for_timestamp(timestamp, self.sensors)
         pcd = feather.read_feather(self.scene.pcd[self.scene.pcd_timestamps.index(timestamp)])
-        full_pcd = np.c_[pcd["x"], pcd["y"], pcd["z"], np.zeros(pcd.shape[0]), np.zeros(pcd.shape[0]), np.zeros(pcd.shape[0])]
+        full_pcd = np.c_[pcd["x"], pcd["y"], pcd["z"], np.zeros(pcd.shape[0]), np.zeros(pcd.shape[0]), np.zeros(pcd.shape[0]), np.zeros(pcd.shape[0])]
 
         projected_points = self.projected_points[timestamp]
 
         for sensor in self.sensors:
             img = imgs[sensor]
+            seq_img = np.load(seg_img_path / sensor / f"{timestamp}.npy")
             projected_points_2d = projected_points[sensor]
 
             mask = (
@@ -80,7 +81,7 @@ class LidarToImg:
             indexes = projected_points_2d[mask]
             full_pcd[mask, 3:] = img[indexes[:, 1], indexes[:, 0]] / 255
 
-        return pd.DataFrame(full_pcd, columns=["x", "y", "z", "r", "g", "b"])
+        return pd.DataFrame(full_pcd, columns=["x", "y", "z", "r", "g", "b", "seq_idx"])
 
     def project(self) -> Dict[int, Dict[str, np.ndarray]]:
         """
