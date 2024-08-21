@@ -19,6 +19,7 @@ def parse_args():
     parser.add_argument("--dataset_dir", type=str, help="Path to the pickled dataset")
     parser.add_argument("--checkpoint_path", type=str, default="./weights/", help="Path to MobileSAM checkpoint")
     parser.add_argument("--seg_dir", type=str, default="./seg", help="Path to save the segmented images")
+    parser.add_argument("--save_dir", type=str, default="./colored_pcds", help="Path to save the colored point clouds")
     parser.add_argument("--render", action="store_true", default=False, help="Flag to render the point cloud projections into images")
     parser.add_argument("--render_dir", type=str, default="./render", help="Path to save the rendered images")
     parser.add_argument("--debug", action="store_true", default=False, help="Flag for extra debugging info")
@@ -45,22 +46,25 @@ def main(args: argparse.Namespace) -> None:
             if args.dataset_dir is not None:
                 dataset.save(args.dataset_dir + scene_dir.stem + ".pkl")
 
+        lidar_to_img = LidarToImg(dataset, sensors)
+
         if not args.render:
             # Segment the images
             assert Path(args.checkpoint_path).exists(), f"Path {Path(args.checkpoint_path).absolute()} does not exist"
 
             segmentation = Segmentation(args.checkpoint_path)
+            for sensor in sensors:
+                Path(args.seg_dir + "/" + sensor).mkdir(parents=True, exist_ok=True)
             for timestamp in tqdm.tqdm(dataset.pcd_timestamps):  # iterate over all timestamps
                 loaded_images = dataset.get_imgs_for_timestamp(timestamp, sensors)
-                for sensor in sensors:
-                    Path(args.seg_dir + "/" + sensor).mkdir(parents=True, exist_ok=True)
                 for sensor, img in tqdm.tqdm(loaded_images.items()):  # iterate over all sensors TODO: parallelize?
                     segmentation.segment_image(img)
                     seg_img = segmentation.create_segmented_image()
                     np.save(Path(args.seg_dir) / sensor / f"{timestamp}.npy", seg_img)
+
+            lidar_to_img.run(args.save_dir, args.seg_dir)
         else:
             # Project the point cloud to images
-            lidar_to_img = LidarToImg(dataset, sensors)
             lidar_to_img.generate(args.render_dir)
             animate_renders(args.render_dir + scene_dir.stem)
 
