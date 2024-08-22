@@ -17,7 +17,7 @@ def parse_args():
 
     parser.add_argument("--root_dir", type=str, default="../../dataset/train", help="Path to the dataset")
     parser.add_argument("--dataset_dir", type=str, help="Path to the pickled dataset")
-    parser.add_argument("--checkpoint_path", type=str, default="./weights/", help="Path to MobileSAM checkpoint")
+    parser.add_argument("--checkpoint_dir", type=str, default="./weights/", help="Path to MobileSAM checkpoint")
     parser.add_argument("--seg_dir", type=str, default="./seg", help="Path to save the segmented images")
     parser.add_argument("--save_dir", type=str, default="./colored_pcds", help="Path to save the colored point clouds")
     parser.add_argument("--render", action="store_true", default=False, help="Flag to render the point cloud projections into images")
