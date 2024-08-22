@@ -54,7 +54,7 @@ def main(args: argparse.Namespace) -> None:
 
             segmentation = Segmentation(args.checkpoint_path)
             for sensor in sensors:
-                Path(args.seg_dir + "/" + sensor).mkdir(parents=True, exist_ok=True)
+                (Path(args.seg_dir) / scene_dir.stem / sensor).mkdir(parents=True, exist_ok=True)
             for timestamp in tqdm.tqdm(dataset.pcd_timestamps):  # iterate over all timestamps
                 loaded_images = dataset.get_imgs_for_timestamp(timestamp, sensors)
                 for sensor, img in tqdm.tqdm(loaded_images.items()):  # iterate over all sensors TODO: parallelize?
@@ -62,7 +62,7 @@ def main(args: argparse.Namespace) -> None:
                     seg_img = segmentation.create_segmented_image()
                     np.save(Path(args.seg_dir) / scene_dir.stem /  sensor / f"{timestamp}.npy", seg_img)
 
-            lidar_to_img.run(args.save_dir, args.seg_dir)
+            lidar_to_img.run(args.save_dir, args.seg_dir + scene_dir.stem)
         else:
             # Project the point cloud to images
             lidar_to_img.generate(args.render_dir)
