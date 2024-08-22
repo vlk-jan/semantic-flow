@@ -7,6 +7,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 from mobile_sam import sam_model_registry, SamAutomaticMaskGenerator
+from sam2.build_sam import build_sam2_video_predictor
 
 
 class Segmentation:
@@ -30,14 +31,19 @@ class Segmentation:
     def __init__(self, checkpoint_path: str) -> None:
         sam_checkpoint = checkpoint_path + "/mobile_sam.pt"
         model_type = "vit_t"
+        sam2_checkpoint = checkpoint_path + "/sam2_hiera_large.pt"
+        model_cfg = "sam2_hiera_l.yaml"
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
+        if device == "cuda":
+            torch.autocast("cuda", dtype=torch.bfloat16).__enter__()
 
-        sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
-        sam.to(device=device)
-        sam.eval()
+        # sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
+        # sam.to(device=device)
+        # sam.eval()
 
-        self.mask_generator = SamAutomaticMaskGenerator(sam)
+        # self.mask_generator = SamAutomaticMaskGenerator(sam)
+        self.predictor = build_sam2_video_predictor(model_cfg, sam2_checkpoint, device=device)
 
     def load_image(self, file: Union[str, Path]) -> np.ndarray:
         """
@@ -168,3 +174,46 @@ class Segmentation:
         self.masks = self.mask_generator.generate(image)
 
         return self.masks
+
+    def segment_scene(self, scene_dir: Union[str, Path], sensors: List[str]) -> None:
+        """
+        Segments all images in the scene.
+
+        Parameters
+        ----------
+        scene_dir: str or Path
+            Path to the scene directory.
+        sensors: List[str]
+            List of sensors.
+        """
+        def show_mask(mask, ax, obj_id=None, random_color=False):
+            if random_color:
+                color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
+            else:
+                cmap = plt.get_cmap("tab10")
+                cmap_idx = 0 if obj_id is None else obj_id
+                color = np.array([*cmap(cmap_idx)[:3], 0.6])
+            h, w = mask.shape[-2:]
+            mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
+            ax.imshow(mask_image)
+
+        scene_dir = Path(scene_dir)
+        for sensor in sensors:
+            video_path = scene_dir / "sensors" / "cameras" / sensor
+            frame_names = sorted([f for f in (video_path).iterdir()])
+            inference_state = self.predictor.init_state(video_path=str(video_path))
+            self.predictor.reset_state(inference_state)
+            video_segments = {}
+            for out_frame_idx, out_obj_ids, out_mask_logits in self.predictor.propagate_in_video(inference_state):
+                video_segments[out_frame_idx] = {
+                    out_obj_id: (out_mask_logits[i] > 0.0).cpu().numpy()
+                    for i, out_obj_id in enumerate(out_obj_ids)
+                }
+            vis_frame_stride = 30
+            plt.close("all")
+            for out_frame_idx in range(0, len(frame_names), vis_frame_stride):
+                plt.figure(figsize=(6, 4))
+                plt.title(f"frame {out_frame_idx}")
+                plt.imshow(Image.open(video_path / frame_names[out_frame_idx]))
+                for out_obj_id, out_mask in video_segments[out_frame_idx].items():
+                    show_mask(out_mask, plt.gca(), obj_id=out_obj_id)

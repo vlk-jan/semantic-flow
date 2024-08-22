@@ -53,6 +53,8 @@ def main(args: argparse.Namespace) -> None:
             assert Path(args.checkpoint_path).exists(), f"Path {Path(args.checkpoint_path).absolute()} does not exist"
 
             segmentation = Segmentation(args.checkpoint_path)
+            segmentation.segment_scene(scene_dir, sensors)
+            return
             for sensor in sensors:
                 (Path(args.seg_dir) / scene_dir.stem / sensor).mkdir(parents=True, exist_ok=True)
             for timestamp in tqdm.tqdm(dataset.pcd_timestamps):  # iterate over all timestamps
