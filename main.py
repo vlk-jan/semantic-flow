@@ -50,9 +50,9 @@ def main(args: argparse.Namespace) -> None:
 
         if not args.render:
             # Segment the images
-            assert Path(args.checkpoint_path).exists(), f"Path {Path(args.checkpoint_path).absolute()} does not exist"
+            assert Path(args.checkpoint_dir).exists(), f"Path {Path(args.checkpoint_dir).absolute()} does not exist"
 
-            segmentation = Segmentation(args.checkpoint_path)
+            segmentation = Segmentation(args.checkpoint_dir)
             segmentation.segment_scene(scene_dir, sensors)
             return
             for sensor in sensors:
@@ -64,6 +64,7 @@ def main(args: argparse.Namespace) -> None:
                     seg_img = segmentation.create_segmented_image()
                     np.save(Path(args.seg_dir) / scene_dir.stem /  sensor / f"{timestamp}.npy", seg_img)
 
+            del segmentation
             lidar_to_img.run(args.save_dir, args.seg_dir + scene_dir.stem)
         else:
             # Project the point cloud to images
