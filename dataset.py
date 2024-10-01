@@ -9,6 +9,7 @@ import pyarrow.feather as feather
 
 from utils import print_dict, q_2_rot
 
+
 class AVScene:
     def __init__(self, root_dir: Union[Path, str], debug: bool = False):
         self.root_dir = root_dir if isinstance(root_dir, Path) else Path(root_dir)
@@ -34,7 +35,7 @@ class AVScene:
     def _load_calib(self, calib_path: Path, str, debug: bool = False) -> None:
         """
         Load calibration files of intrinsics and extrinsics.
-        
+
         Parameters
         ----------
         calib_path : str
@@ -47,14 +48,18 @@ class AVScene:
 
         self.camera_intrinsics = dict()
         for i in range(intrinsics.shape[0]):
-            self.camera_intrinsics[intrinsics.iloc[i]["sensor_name"]] = self._get_camera_intrinsics(intrinsics.iloc[i])
+            self.camera_intrinsics[intrinsics.iloc[i]["sensor_name"]] = (
+                self._get_camera_intrinsics(intrinsics.iloc[i])
+            )
         if debug:
             print("Camera intrinsics:\n-----------------")
             print_dict(self.camera_intrinsics)
 
         self.sensor_extrinsics = dict()
         for i in range(extrinsics.shape[0]):
-            self.sensor_extrinsics[extrinsics.iloc[i]["sensor_name"]] = self._get_sensor_extrinsics(extrinsics.iloc[i])
+            self.sensor_extrinsics[extrinsics.iloc[i]["sensor_name"]] = (
+                self._get_sensor_extrinsics(extrinsics.iloc[i])
+            )
         if debug:
             print("Sensor extrinsics:\n-----------------")
             print_dict(self.sensor_extrinsics)
@@ -99,7 +104,12 @@ class AVScene:
         """
         ret = np.zeros((4, 4))
 
-        ret[:3, :3] = q_2_rot(extrinsics["qx"], extrinsics["qy"], extrinsics["qz"], extrinsics["qw"]) @ self.view_T_camera
+        ret[:3, :3] = (
+            q_2_rot(
+                extrinsics["qx"], extrinsics["qy"], extrinsics["qz"], extrinsics["qw"]
+            )
+            @ self.view_T_camera
+        )
         ret[:3, 3] = extrinsics[["tx_m", "ty_m", "tz_m"]].values
         ret[3, 3] = 1
 
@@ -119,7 +129,9 @@ class AVScene:
         self.raw_imgs = dict()
 
         for sensor in (sensor_path / "cameras").iterdir():
-            self.raw_imgs[sensor.stem] = sorted(Path(sensor_path / "cameras" / sensor.stem).glob("*.jpg"))
+            self.raw_imgs[sensor.stem] = sorted(
+                Path(sensor_path / "cameras" / sensor.stem).glob("*.jpg")
+            )
 
         if debug:
             print("Raw images:\n-----------")
@@ -152,25 +164,29 @@ class AVScene:
         self.pcd_timestamps = [int(e.stem) for e in self.pcd]
 
         for sensor in self.raw_imgs.keys():
-            img_timestamp_to_img_file_map = {int(e.stem): e for e in self.raw_imgs[sensor]}
+            img_timestamp_to_img_file_map = {
+                int(e.stem): e for e in self.raw_imgs[sensor]
+            }
             self.timestamp_to_path[sensor] = img_timestamp_to_img_file_map
 
             lidar_to_img_map_sensor[sensor] = {
-                    lidar_timestamp: min(
-                        img_timestamp_to_img_file_map.keys(),
-                        key=lambda img_timestamp: abs(img_timestamp - lidar_timestamp),
-                    )
-                    for lidar_timestamp in self.pcd_timestamps
-                }
+                lidar_timestamp: min(
+                    img_timestamp_to_img_file_map.keys(),
+                    key=lambda img_timestamp: abs(img_timestamp - lidar_timestamp),
+                )
+                for lidar_timestamp in self.pcd_timestamps
+            }
 
         self.lidar_to_img_map = dict()
         for lidar_timestamp in self.pcd_timestamps:
             self.lidar_to_img_map[lidar_timestamp] = {
-                    sensor: lidar_to_img_map_sensor[sensor][lidar_timestamp]
-                    for sensor in self.raw_imgs.keys()
-                }
+                sensor: lidar_to_img_map_sensor[sensor][lidar_timestamp]
+                for sensor in self.raw_imgs.keys()
+            }
 
-    def get_imgs_for_timestamp(self, timestamp: int, sensors: List[str]) -> Dict[str, np.ndarray]:
+    def get_imgs_for_timestamp(
+        self, timestamp: int, sensors: List[str]
+    ) -> Dict[str, np.ndarray]:
         """
         Get images for a specific timestamp.
 
@@ -187,7 +203,16 @@ class AVScene:
             A dictionary containing the images for each sensor.
         """
         return {
-            sensor: cv2.cvtColor(cv2.imread(str(self.timestamp_to_path[sensor][self.lidar_to_img_map[timestamp][sensor]])), cv2.COLOR_BGR2RGB)
+            sensor: cv2.cvtColor(
+                cv2.imread(
+                    str(
+                        self.timestamp_to_path[sensor][
+                            self.lidar_to_img_map[timestamp][sensor]
+                        ]
+                    )
+                ),
+                cv2.COLOR_BGR2RGB,
+            )
             for sensor in sensors
         }
 
@@ -212,9 +237,18 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Dataset class creation")
-    parser.add_argument("--root_dir", type=str, default="../../dataset/train/ff8e7fdb-1073-3592-ba5e-8111bc3ce48b", help="Path to the dataset")
-    parser.add_argument("--save_dir", type=str, default="./datasets", help="Path to save the dataset")
-    parser.add_argument("--debug", action="store_true", help="Flag for extra debugging info")
+    parser.add_argument(
+        "--root_dir",
+        type=str,
+        default="../../dataset/train/ff8e7fdb-1073-3592-ba5e-8111bc3ce48b",
+        help="Path to the dataset",
+    )
+    parser.add_argument(
+        "--save_dir", type=str, default="./datasets", help="Path to save the dataset"
+    )
+    parser.add_argument(
+        "--debug", action="store_true", help="Flag for extra debugging info"
+    )
 
     args = parser.parse_args()
 
